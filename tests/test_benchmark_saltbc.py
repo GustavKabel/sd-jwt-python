@@ -1,9 +1,14 @@
 import pytest
-from jwcrypto import jwk
+import json
+from jwcrypto import jwk, jws
 from sd_jwt.issuer import SDJWTIssuer
 from sd_jwt.holder import SDJWTHolder
 from sd_jwt.verifier import SDJWTVerifier
 
+""" 
+To run benchmark run bash command:
+                                  pytest tests/test_benchmark_saltbc.py --benchmark-columns=mean,stddev,ops --benchmark-sort=mean
+"""
 # 1. Setup baseline user attributes
 USER_CLAIMS = {
     "given_name": "Julian",
@@ -30,6 +35,34 @@ def test_benchmark_kgen(benchmark):
         return jwk.JWK.generate(kty="EC", crv="P-256")
     benchmark(generate_key)
 
+
+def test_benchmark_salt_and_hash(benchmark):
+    """Phase 1.5a: Salting and Hashing (SaltedHash Phase)"""
+    base_issuer = SDJWTIssuer(
+        user_claims=USER_CLAIMS,
+        issuer_keys=[issuer_key],
+        sign_alg="ES256"
+    )
+
+    def salt_and_hash():
+        base_issuer.ii_disclosures = []
+        return base_issuer._create_sd_claims(USER_CLAIMS)
+
+    benchmark(salt_and_hash)
+
+
+def test_benchmark_sign(benchmark):
+    """Phase 1.5b: Raw Signing (ECDSA ES256)"""
+    payload = b"dummy payload for pure signature benchmark"
+    protected_header = json.dumps({"alg": "ES256"})
+
+    def raw_sign():
+        token = jws.JWS(payload)
+        token.add_signature(issuer_key, alg="ES256", protected=protected_header)
+        return token.serialize()
+
+    benchmark(raw_sign)
+
 def test_benchmark_issue(benchmark):
     """Phase 2: Issuance (SaltedHash + Signing)"""
     def issue_credential():
@@ -39,7 +72,7 @@ def test_benchmark_issue(benchmark):
             sign_alg="ES256"
         )
         return issuer.sd_jwt_issuance
-    benchmark(issue_issuer_credential := issue_credential)
+    benchmark(issue_credential)
 
 # Pre-compute an issued credential for presentation/verification benchmarks
 issuer = SDJWTIssuer(
