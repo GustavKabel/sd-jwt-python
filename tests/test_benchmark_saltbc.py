@@ -4,22 +4,24 @@ from jwcrypto import jwk, jws
 from sd_jwt.issuer import SDJWTIssuer
 from sd_jwt.holder import SDJWTHolder
 from sd_jwt.verifier import SDJWTVerifier
+from sd_jwt.common import SDObj
 
 """ 
 To run benchmark run bash command:
-                                  pytest tests/test_benchmark_saltbc.py --benchmark-columns=mean,stddev,ops --benchmark-sort=mean
+    pytest tests/test_benchmark_saltbc.py --benchmark-columns=mean,stddev,ops --benchmark-sort=mean
 """
 # 1. Setup baseline user attributes
+
 USER_CLAIMS = {
-    "given_name": "Julian",
-    "family_name": "Doe",
-    "birthdate": "1990-01-01",
-    "address": {
+    SDObj("given_name"): "Julian",
+    SDObj("family_name"): "Doe",
+    SDObj("birthdate"): "1990-01-01",
+    SDObj("address"): {
         "street": "Aarhus Way 1",
         "city": "Aarhus",
         "country": "Denmark"
     },
-    "age_over_18": True
+    SDObj("age_over_18"): True
 }
 
 # Generate an EC JWK key pair
