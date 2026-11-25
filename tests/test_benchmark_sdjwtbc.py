@@ -15,7 +15,7 @@ To run benchmark:
       --benchmark-save=baseline_sdjwtbc
 """
 
-# Paper parameter n: maximum number of attributes per credential (real + decoy digests)
+# n: maximum number of attributes per credential (real + decoy digests)
 MAX_ATTRIBUTES = 10
 
 
@@ -33,7 +33,6 @@ class SDJWTBCIssuer(SDJWTIssuer):
         self.DECOY_MAX_ELEMENTS = num_decoys
         kwargs["add_decoy_claims"] = num_decoys > 0
         super().__init__(user_claims, *args, **kwargs)
-
 
 
 USER_CLAIMS = {
