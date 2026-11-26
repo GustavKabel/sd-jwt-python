@@ -88,7 +88,7 @@ def test_benchmark_salt_and_hash(benchmark):
 
 def test_benchmark_sign(benchmark):
     payload = json.dumps(issuer.sd_jwt_payload).encode("utf-8")
-    protected_header = json.dumps({"alg": "ES256"})
+    protected_header = json.dumps({"alg": "ES256", "typ": SDJWTIssuer.SD_JWT_HEADER})
 
     def raw_sign():
         token = jws.JWS(payload)
@@ -126,19 +126,10 @@ presentation = holder.sd_jwt_presentation
 
 
 def test_benchmark_fin_creds(benchmark):
-    all_claims = {
-        "given_name": True,
-        "family_name": True,
-        "nationality": True,
-        "birthdate": True,
-        "age_over_18": True,
-    }
-
+    # FinCreds: Single-pass wallet verification of issued credential
     def fin_creds():
-        h = SDJWTHolder(issued_credential)
-        h.create_presentation(all_claims)
         v = SDJWTVerifier(
-            h.sd_jwt_presentation,
+            issued_credential,
             cb_get_issuer_key=lambda iss, hdr: issuer_public_jwk_obj,
             expected_aud=None,
             expected_nonce=None,
@@ -146,13 +137,10 @@ def test_benchmark_fin_creds(benchmark):
         return v.get_verified_payload()
 
     verified = benchmark(fin_creds)
-    assert verified["given_name"] == "Julian"
-    assert verified["nationality"] == "Danish"
-    assert verified["age_over_18"] is True
+    assert verified == {k.value: v for k, v in USER_CLAIMS.items()}
 
 
 def test_benchmark_verify(benchmark):
-    """Phase 4: Verification (VfPres)"""
     def verify_presentation():
         verifier = SDJWTVerifier(
             presentation,

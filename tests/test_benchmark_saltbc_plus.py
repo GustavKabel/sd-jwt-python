@@ -64,7 +64,7 @@ def test_benchmark_req_creds(benchmark):
 
 
 def test_benchmark_salt_and_hash(benchmark):
-    # SaltedHash + Order: Deterministic hashing on Issuer using user-supplied salts.
+    # SaltedHash + Order: hashing on Issuer using user-supplied salts.
     base_issuer = SaltBCPlusIssuer(
         user_claims=USER_CLAIMS,
         req=req,
@@ -85,7 +85,7 @@ def test_benchmark_salt_and_hash(benchmark):
 
 
 def test_benchmark_sign(benchmark):
-    """SIG.Sign: Raw ECDSA ES256 signing over canonical n-digest payload pl."""
+    # SIG.Sign Raw ECDSA signing over n-digest payload pl.
     payload = _canonical_json(issuer.sd_jwt_payload).encode("utf-8")
     protected_header = _canonical_json({"alg": "ES256", "typ": SaltBCPlusIssuer.SD_JWT_HEADER})
 
@@ -98,7 +98,7 @@ def test_benchmark_sign(benchmark):
 
 
 def test_benchmark_issue(benchmark):
-    """Issue: Deterministic SaltedHash + alphanumeric Order + SIG.Sign -> rsp = σ."""
+    # Issue: Deterministic SaltedHash + alphanumeric Order + SIG.Sign -> rsp
     def issue_credential():
         iss = SaltBCPlusIssuer(
             user_claims=USER_CLAIMS,
@@ -113,13 +113,13 @@ def test_benchmark_issue(benchmark):
 
 
 def test_benchmark_fin_creds(benchmark):
-    """FinCreds: Local reconstruction of pl & S from st + SIG.Vf(ipk, pl, σ)."""
+    # FinCreds: Local reconstruction of pl & S from st + SIG.Vf(ipk, pl, sigma).
     cred = benchmark(user_wallet.fin_creds, user_state, issuer_rsp, issuer_public_jwk_obj)
     assert cred == finalized_credential
 
 
 def test_benchmark_present(benchmark):
-    """Present: Selective disclosure of 1 of |A| attributes."""
+    # Present: Selective disclosure of 1 of |A| attributes.
     def create_presentation():
         h = SDJWTHolder(finalized_credential)
         h.create_presentation({"given_name": True})
@@ -129,7 +129,7 @@ def test_benchmark_present(benchmark):
 
 
 def test_benchmark_verify(benchmark):
-    """VfPres: Standard verifier checks SIG.Vf and disclosed attribute digest."""
+    # VfPres: Standard verifier checks SIG.Vf and disclosed attribute digest.
     def verify_presentation():
         verifier = SDJWTVerifier(
             presentation,
