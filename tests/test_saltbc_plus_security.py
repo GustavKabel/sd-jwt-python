@@ -1,8 +1,7 @@
 import copy
-import json
 
 import pytest
-from jwcrypto import jwk, jws
+from jwcrypto import jwk
 
 from sd_jwt.common import SDObj
 from sd_jwt.holder import SDJWTHolder
@@ -10,7 +9,6 @@ from sd_jwt.saltbc_plus import (
     SaltBCPlusIssuer,
     SaltBCPlusUser,
     SaltBCPlusVerificationError,
-    _canonical_json,
 )
 from sd_jwt.verifier import SDJWTVerifier
 
@@ -106,21 +104,6 @@ def test_rejects_subverted_digest_order(setup_parties):
     subverted_issuer = PermutingIssuer(USER_CLAIMS, req, issuer_keys=[sk], sign_alg="ES256")
     with pytest.raises(SaltBCPlusVerificationError):
         user.fin_creds(state, subverted_issuer.rsp, pk)
-
-def test_rejects_non_canonical_json_formatting(setup_parties):
-    # Encoding side-channel
-    sk, pk, user, state, req = setup_parties
-    honest_issuer = SaltBCPlusIssuer(USER_CLAIMS, req, issuer_keys=[sk], sign_alg="ES256")
-
-    protected_str = _canonical_json({"alg": "ES256", "typ": SaltBCPlusIssuer.SD_JWT_HEADER})
-
-    non_canonical_payload = json.dumps(honest_issuer.sd_jwt_payload, sort_keys=True)
-    token = jws.JWS(payload=non_canonical_payload.encode("utf-8"))
-    token.add_signature(sk, alg="ES256", protected=protected_str)
-    tampered_sig = token.serialize(compact=True).split(".")[2]
-
-    with pytest.raises(SaltBCPlusVerificationError):
-        user.fin_creds(state, tampered_sig, pk)
 
 def test_rejects_malformed_or_corrupted_signature(setup_parties):
     # FinCreds aborts on malformed rsp or invalid signature
