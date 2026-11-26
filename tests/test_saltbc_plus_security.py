@@ -1,11 +1,9 @@
 import copy
 import json
-from typing import assert_type
 
 import pytest
 from jwcrypto import jwk, jws
 
-from sd_jwt import verifier
 from sd_jwt.common import SDObj
 from sd_jwt.holder import SDJWTHolder
 from sd_jwt.saltbc_plus import (
@@ -115,7 +113,7 @@ def test_rejects_non_canonical_json_formatting(setup_parties):
     honest_issuer = SaltBCPlusIssuer(USER_CLAIMS, req, issuer_keys=[sk], sign_alg="ES256")
 
     protected_str = _canonical_json({"alg": "ES256", "typ": SaltBCPlusIssuer.SD_JWT_HEADER})
-  
+
     non_canonical_payload = json.dumps(honest_issuer.sd_jwt_payload, sort_keys=True)
     token = jws.JWS(payload=non_canonical_payload.encode("utf-8"))
     token.add_signature(sk, alg="ES256", protected=protected_str)

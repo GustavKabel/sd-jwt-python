@@ -17,7 +17,6 @@ To run and compare directly against baseline_sdjwtbc (0004):
       --benchmark-compare=0004
 """
 
-# Paper parameter n: maximum number of attributes per credential (|A| = 5 real + 5 decoys)
 MAX_ATTRIBUTES = 10
 
 USER_CLAIMS = {
@@ -28,12 +27,12 @@ USER_CLAIMS = {
     SDObj("age_over_18"): True,
 }
 
-# Setup: KGen (ECDSA P-256)
+# Setup - KGen (ECDSA P-256)
 issuer_key = jwk.JWK.generate(kty="EC", crv="P-256")
 issuer_public_jwk = issuer_key.export(private_key=False, as_dict=True)
 issuer_public_jwk_obj = jwk.JWK(**issuer_public_jwk)
 
-# Pre-compute ReqCreds, Issue, FinCreds, and Present states for isolated benchmarks
+# Pre-compute ReqCreds, Issue, FinCreds, and Present for isolated benchmarks
 user_wallet = SaltBCPlusUser(sign_alg="ES256")
 user_state, req = user_wallet.req_creds(USER_CLAIMS, max_attributes=MAX_ATTRIBUTES)
 
@@ -53,19 +52,19 @@ presentation = holder.sd_jwt_presentation
 
 
 def test_benchmark_kgen(benchmark):
-    """KGen: Issuer key generation (ECDSA P-256)."""
+    # KGen: Issuer key generation (ECDSA P-256).
     benchmark(lambda: jwk.JWK.generate(kty="EC", crv="P-256"))
 
 
 def test_benchmark_req_creds(benchmark):
-    """ReqCreds: User samples n=10 fresh salts (|A| attribute + n-|A| decoy salts)."""
+    # ReqCreds User samples n=10 fresh salts (|A| attribute + n-|A| decoy salts).
     _, r = benchmark(user_wallet.req_creds, USER_CLAIMS, MAX_ATTRIBUTES)
     assert len(r["attr_salts"]) == len(USER_CLAIMS)
     assert len(r["decoy_salts"]) == MAX_ATTRIBUTES - len(USER_CLAIMS)
 
 
 def test_benchmark_salt_and_hash(benchmark):
-    """SaltedHash + Order: Deterministic hashing on Issuer using user-supplied salts."""
+    # SaltedHash + Order: Deterministic hashing on Issuer using user-supplied salts.
     base_issuer = SaltBCPlusIssuer(
         user_claims=USER_CLAIMS,
         req=req,
