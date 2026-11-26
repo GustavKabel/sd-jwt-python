@@ -225,7 +225,7 @@ class SaltBCPlusUser(SDJWTCommon):
         decoy_salts: List[str] = state["decoy_salts"]
 
         sd_item = [(k.value, v) for k, v in user_claims.items() if isinstance(k, SDObj)]
-        expected_payload: Dict[str, Any] = {k: v for k, v in user_claims.items() if not isinstance(k, SDObj)}
+        expected_payload: Dict[str, Any] = {k: v for k, v in user_claims.items() if isinstance(k, str)}
 
         # Reconstruct openings S = {(s_j, a_j)} and digest H(s_j || a_j)
         disclosure_b64: List[str] = []
