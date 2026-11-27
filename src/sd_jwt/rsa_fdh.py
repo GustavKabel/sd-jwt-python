@@ -1,19 +1,14 @@
 """
-RFC 9381 Section 4 (RSA-FDH-VRF-SHA256) unique signature primitive
-for saltBC+.
+    RSA-FDH implementation based on RFC 9381,
+    provides a unique signature scheme primitive for saltBC+ phase 2
 
-Implements KGen, SIG.Sign(isk, pl) -> sigma, and SIG.Vf(ipk, pl, sigma)
-following RFC 9381 Section 4 (fixed k-byte length, 0 <= s < n, and
-deterministic MGF1-SHA256 hashing) to eliminate signature randomness /
-anamorphic signature channels.
+    Implements KGen, SIG.Sign, SIG.Vf, where SIG.Sign corresponds to VRF_prove and SIG.Vf corresponds to VRF_verify
 
-Benchmark analysis note:
-    KGen (cryptography) and MGF1-SHA256 (hashlib) execute in OpenSSL C, whereas
-    modular exponentiation in SIG.Sign (CRT pow()) and SIG.Vf (pow(s, e, n))
-    executes in CPython's built-in pow(). Pure-Python big-integer pow()
-    overhead reflects the lack of raw RSA / RFC 9381 RSA-FDH bindings in
-    standard JOSE/Python crypto libraries (jwcrypto, cryptography), not an
-    inherent algorithmic penalty of RSA-FDH.
+    From RFC 9381 we use fixed k-byte length, 0 <= s < n, and deterministic MGF1-SHA256 hashing.
+
+    Benchmark note:
+        KGen and MGF1-SHA256 execute in OpenSSL C
+        modular exponentiation in SIG.Sign and SIG.Vf executes in CPython's built-in pow().
 """
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
@@ -35,7 +30,7 @@ _SHA256_DIGEST_SIZE: int = 32
 
 
 def i2osp(x: int, x_len: int) -> bytes:
-    """RFC 8017 Section 4.1 I2OSP: convert non-negative integer x to x_len big-endian bytes."""
+    # RFC 8017 I2OSP convert non-negative integer x to x_len big-endian bytes.
     if not isinstance(x, int) or isinstance(x, bool):
         raise TypeError("x must be an integer")
     if not isinstance(x_len, int) or isinstance(x_len, bool) or x_len < 0:
@@ -46,21 +41,23 @@ def i2osp(x: int, x_len: int) -> bytes:
 
 
 def os2ip(octet_string: bytes) -> int:
-    """RFC 8017 Section 4.2 OS2IP: convert big-endian octet string to non-negative integer."""
+    # RFC 8017 OS2IP convert big-endian octet string to non-negative integer.
     if not isinstance(octet_string, (bytes, bytearray)):
         raise TypeError("octet_string must be bytes")
     return int.from_bytes(octet_string, "big")
 
 
+
+# Format functions to bride RSA-FDH with SD-JWT implementation
 def b64url_encode(data: bytes) -> str:
-    """Unpadded Base64url encoding (RFC 7515 / RFC 9901)."""
+    # Unpadded Base64url encoding
     if not isinstance(data, (bytes, bytearray)):
         raise TypeError("data must be bytes")
     return urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
 
 def b64url_decode(data: str) -> bytes:
-    """Standard unpadded Base64url decoding (RFC 7515 / RFC 9901)."""
+    # Standard unpadded Base64url decoding
     if not isinstance(data, str):
         raise ValueError("Base64url input must be a string")
     rem = len(data) % 4
@@ -73,12 +70,13 @@ def b64url_decode(data: str) -> bytes:
         raise ValueError("Invalid Base64url encoding") from exc
 
 
+#Masking function from RFC 8017
 def mgf1_sha256(mgf_seed: bytes, mask_len: int) -> bytes:
-    """RFC 8017 Appendix B.2.1 MGF1 instantiated with SHA-256."""
+    # RFC 8017 MGF1 instantiated with SHA-256.
     if not isinstance(mgf_seed, (bytes, bytearray)):
         raise TypeError("mgf_seed must be bytes")
     if mask_len < 0 or mask_len > (1 << 32) * _SHA256_DIGEST_SIZE:
-        raise ValueError("mask_len out of range for MGF1-SHA256")
+        raise ValueError("mask too long")
     if mask_len == 0:
         return b""
 
@@ -95,12 +93,11 @@ def mgf1_sha256(mgf_seed: bytes, mask_len: int) -> bytes:
 @dataclass(frozen=True)
 class RSAFDHPublicKey:
     """
-    Issuer public verification key ipk = (n, e) for RFC 9381 RSA-FDH-VRF-SHA256.
+    Issuer public verification key ipk = (n, e).
 
-    Precomputes the modulus byte length k and RFC 9381 Section 4 domain-separation
+    Precomputes the modulus byte length k and domain-separation
     prefix: 0x01 || 0x01 || I2OSP(k, 4) || I2OSP(n, k).
     """
-
     n: int
     e: int
     kid: Optional[str] = None
@@ -136,8 +133,13 @@ class RSAFDHPublicKey:
 @dataclass(frozen=True)
 class RSAFDHPrivateKey:
     """
-    Issuer secret signing key isk = (n, e, d, p, q, dmp1, dmq1, iqmp) for
-    RFC 9381 RSA-FDH-VRF-SHA256 with CRT parameters for SIG.Sign acceleration.
+    Issuer secret signing key isk = (n, e, d, p, q, dmp1, dmq1, iqmp) for RSA-FDH-VRF-SHA256.
+    dmp1, dmq1, iqmp are chinese remainder theorem parameter such that
+        dmp = d mod p
+        dmq = d mod q
+        iqmp = inverse q mod p
+
+    Used to improve sign performance
     """
 
     n: int
