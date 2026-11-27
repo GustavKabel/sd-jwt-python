@@ -2,7 +2,7 @@
     RSA-FDH implementation based on RFC 9381,
     provides a unique signature scheme primitive for saltBC+ phase 2
 
-    Implements KGen, SIG.Sign, SIG.Vf, where SIG.Sign corresponds to VRF_prove and SIG.Vf corresponds to VRF_verify
+    Implements KGen, SIG.Sign, SIG.Vf, where rsa_fdh_sign corresponds to VRF_prove and rsa_fdh_verify corresponds to VRF_verify
 
     From RFC 9381 we use fixed k-byte length, 0 <= s < n, and deterministic MGF1-SHA256 hashing.
 
@@ -117,7 +117,6 @@ class RSAFDHPublicKey:
         object.__setattr__(self, "modulus_len", k)
         object.__setattr__(self, "mgf_prefix", mgf_prefix)
 
-    @property
     def key_size(self) -> int:
         return self.n.bit_length()
 
@@ -162,17 +161,14 @@ class RSAFDHPrivateKey:
             RSAFDHPublicKey(n=self.n, e=self.e, kid=self.kid),
         )
 
-    @property
     def public_key(self) -> RSAFDHPublicKey:
         return self._public_key
 
-    @property
     def modulus_len(self) -> int:
         return self._public_key.modulus_len
 
-    @property
     def key_size(self) -> int:
-        return self._public_key.key_size
+        return self._public_key.key_size()
 
     def __contains__(self, item: object) -> bool:
         return item == "kid" and self.kid is not None
@@ -209,7 +205,6 @@ class RSAFDHPrivateKey:
         public_exponent: int = DEFAULT_PUBLIC_EXPONENT,
         kid: Optional[str] = None,
     ) -> "RSAFDHPrivateKey":
-        """KGen(1^lambda) -> (ipk, isk) via OpenSSL RSA key generation."""
         key = rsa.generate_private_key(
             public_exponent=public_exponent,
             key_size=key_size,
@@ -218,19 +213,15 @@ class RSAFDHPrivateKey:
 
 
 def rsa_fdh_sign(private_key: RSAFDHPrivateKey, message: bytes) -> bytes:
-    """
-    SIG.Sign(isk, pl) -> sigma via RFC 9381 Section 4.1 (RSAFDHVRF_prove).
 
-    Computes EM = MGF1-SHA256(0x01 || 0x01 || I2OSP(k, 4) || I2OSP(n, k) || pl, k - 1),
-    m = OS2IP(EM), CRT-accelerated s = m^d mod n, and outputs fixed-length I2OSP(s, k).
-    """
+    #Computes EM and uses CRT accelerated sign according to RFC 9381
     if not isinstance(private_key, RSAFDHPrivateKey):
         raise TypeError("private_key must be an RSAFDHPrivateKey")
     if not isinstance(message, (bytes, bytearray)):
         raise TypeError("message must be bytes")
 
-    k = private_key.modulus_len
-    em = mgf1_sha256(private_key.public_key.mgf_prefix + bytes(message), k - 1)
+    k = private_key.modulus_len()
+    em = mgf1_sha256(private_key.public_key().mgf_prefix + bytes(message), k - 1)
     m = os2ip(em)
 
     # CRT-accelerated RSASP1: s = m^d mod n with 0 <= s < n
@@ -247,12 +238,8 @@ def rsa_fdh_verify(
     message: bytes,
     signature: bytes,
 ) -> bool:
-    """
-    SIG.Vf(ipk, pl, sigma) -> {True, False} via RFC 9381 Section 4.3 (RSAFDHVRF_verify).
 
-    Enforces exact k-byte length, strict representative range 0 <= s < n,
-    m = s^e mod n < 2^(8*(k - 1)), and constant-time equality with EM'.
-    """
+    # verifies a signature according to RFC 9381
     if not isinstance(public_key, RSAFDHPublicKey):
         raise TypeError("public_key must be an RSAFDHPublicKey")
     if not isinstance(message, (bytes, bytearray)):

@@ -21,13 +21,9 @@ To run and save Phase 2 benchmarks (RSA-2048 legacy baseline & RSA-3072 128-bit 
       --benchmark-sort=mean \
       --benchmark-save=phase2_saltbc_plus_rsa_fdh
 
-Benchmark analysis note:
-    KGen (cryptography) and MGF1-SHA256 (hashlib) execute in OpenSSL C, whereas
-    modular exponentiation in SIG.Sign (CRT pow()) and SIG.Vf (pow(s, e, n))
-    executes in CPython's built-in pow(). Pure-Python big-integer pow() overhead
-    reflects the lack of raw RSA / RFC 9381 RSA-FDH bindings in standard JOSE/Python
-    crypto libraries (jwcrypto, cryptography), not an inherent algorithmic penalty
-    of RSA-FDH.
+    Benchmark note:
+        KGen and MGF1-SHA256 execute in OpenSSL C
+        modular exponentiation in SIG.Sign and SIG.Vf executes in CPython's built-in pow().
 """
 
 MAX_ATTRIBUTES = 10
@@ -45,7 +41,7 @@ USER_CLAIMS = {
 def _build_fixture(key_size: int) -> dict:
     # Pre-compute KGen, ReqCreds, Issue, FinCreds, and Present for isolated benchmarks
     issuer_key = RSAFDHPrivateKey.generate(key_size=key_size)
-    issuer_public_key = issuer_key.public_key
+    issuer_public_key = issuer_key.public_key()
 
     user_wallet = SaltBCPlusRSAFDHUser(sign_alg=RSA_FDH_SIGN_ALG)
     user_state, req = user_wallet.req_creds(USER_CLAIMS, max_attributes=MAX_ATTRIBUTES)
@@ -99,7 +95,7 @@ def test_benchmark_kgen(benchmark, key_size):
         iterations=1,
         warmup_rounds=1,
     )
-    assert sk.key_size == key_size
+    assert sk.key_size() == key_size
 
 
 @pytest.mark.parametrize("key_size", KEY_SIZES, ids=["rsa2048", "rsa3072"])
@@ -139,7 +135,7 @@ def test_benchmark_sign(benchmark, key_size):
     # SIG.Sign: Raw RFC 9381 RSA-FDH signing over canonical n-digest payload pl.
     fx = _FIXTURES[key_size]
     sig = benchmark(rsa_fdh_sign, fx["issuer_key"], fx["signing_input"])
-    assert len(sig) == fx["issuer_key"].modulus_len
+    assert len(sig) == fx["issuer_key"].modulus_len()
 
 
 @pytest.mark.parametrize("key_size", KEY_SIZES, ids=["rsa2048", "rsa3072"])

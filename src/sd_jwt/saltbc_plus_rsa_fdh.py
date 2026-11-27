@@ -1,10 +1,9 @@
 """
-Phase 2 saltBC+ (sdjwtBC+) instantiation with RFC 9381 RSA-FDH unique signatures.
+Phase 2 saltBC+ instantiation with RSA-FDH signatures.
 
 Thin subclasses over Phase 1's SaltBCPlusIssuer / SaltBCPlusUser and stock
-SDJWTVerifier that swap ECDSA (ES256) for deterministic, unique RSA-FDH
-signatures while reusing 100% of Phase 1's salt, decoy, alphanumeric digest
-ordering, and canonical JSON defenses.
+SDJWTVerifier that swap ECDSA for RSA-FDH signatures while reusing Phase 1's
+salt, decoy, alphanumeric digest ordering.
 """
 
 import json
@@ -29,13 +28,7 @@ RSA_FDH_SIGN_ALG: str = "RSA-FDH-SHA256"
 
 
 class SaltBCPlusRSAFDHIssuer(SaltBCPlusIssuer):
-    """
-    saltBC+ Issuer (Issue) instantiated with RFC 9381 RSA-FDH unique signatures.
-
-    Reuses Phase 1's deterministic SaltedHash(A, req), alphanumeric Order(H),
-    canonical JSON serialization, and rsp-only output, replacing SIG.Sign(isk, pl)
-    with deterministic RSA-FDH signing.
-    """
+    # saltBC+ Issuer with RSA-FDH signatures.
 
     def __init__(
         self,
@@ -64,7 +57,8 @@ class SaltBCPlusRSAFDHIssuer(SaltBCPlusIssuer):
         )
 
     def _sign_compact_jws(self, protected_str: str, payload_str: str) -> str:
-        """Compute deterministic unique signature sigma = SIG.Sign(isk, pl) over JWS signing input."""
+        # Compute signature over JWS signing input.
+
         protected_b64 = b64url_encode(protected_str.encode("utf-8"))
         payload_b64 = b64url_encode(payload_str.encode("utf-8"))
         signing_input = f"{protected_b64}.{payload_b64}".encode("ascii")
@@ -78,8 +72,7 @@ class SaltBCPlusRSAFDHIssuer(SaltBCPlusIssuer):
 
 class SaltBCPlusRSAFDHUser(SaltBCPlusUser):
     """
-    saltBC+ User algorithms ReqCreds(ipk, A) -> (st, req) and FinCreds(st, rsp) -> cred
-    instantiated with RFC 9381 RSA-FDH unique signature verification.
+    saltBC+ User algorithms ReqCreds, FinCreds with RSA-FDH
     """
 
     def __init__(self, sign_alg: str = RSA_FDH_SIGN_ALG):
@@ -90,7 +83,7 @@ class SaltBCPlusRSAFDHUser(SaltBCPlusUser):
         compact_jws: str,
         issuer_public_key: RSAFDHPublicKey,
     ) -> None:
-        """Compute SIG.Vf(ipk, pl, sigma) using RFC 9381 RSA-FDH verification."""
+        # Compute SIG.Vf with RSA-FDH verification.
         if not isinstance(issuer_public_key, RSAFDHPublicKey):
             raise SaltBCPlusVerificationError(
                 "FinCreds aborted: issuer_public_key must be an RSAFDHPublicKey"
@@ -119,10 +112,10 @@ class SaltBCPlusRSAFDHUser(SaltBCPlusUser):
 
 class SaltBCPlusRSAFDHVerifier(SDJWTVerifier):
     """
-    saltBC+ Verifier (VfPres) for presentations carrying RFC 9381 RSA-FDH signatures.
+    saltBC+ Verifier for presentations with RSA-FDH signatures.
 
-    Verifies JWS header alg, RSA-FDH signature SIG.Vf(ipk, pl, sigma), and delegates
-    selective-disclosure unpacking to SDJWTVerifier.
+    Verifies JWS header alg, RSA-FDH signature, and delegates
+    selective-disclosure to SDJWTVerifier.
     """
 
     def __init__(

@@ -34,16 +34,16 @@ USER_CLAIMS = {
 
 @pytest.fixture(scope="module")
 def rsa2048_keypair():
-    # KGen for RSA-2048 (standard legacy baseline)
+    # KGen for RSA-2048
     sk = RSAFDHPrivateKey.generate(key_size=2048)
-    return sk, sk.public_key
+    return sk, sk.public_key()
 
 
 @pytest.fixture(scope="module")
 def rsa3072_keypair():
     # KGen for RSA-3072 (128-bit security matching ECDSA P-256)
     sk = RSAFDHPrivateKey.generate(key_size=3072)
-    return sk, sk.public_key
+    return sk, sk.public_key()
 
 
 @pytest.fixture
@@ -72,7 +72,7 @@ def test_honest_partial_and_full_disclosure(key_size, rsa2048_keypair, rsa3072_k
     issuer = SaltBCPlusRSAFDHIssuer(USER_CLAIMS, req, issuer_keys=[sk])
     assert len(issuer.sd_jwt_payload["_sd"]) == MAX_ATTRIBUTES
     assert issuer.sd_jwt_issuance is None
-    assert len(b64url_decode(issuer.rsp)) == sk.modulus_len
+    assert len(b64url_decode(issuer.rsp)) == sk.modulus_len()
 
     finalized_cred = user.fin_creds(state, issuer.rsp, pk)
 
@@ -109,7 +109,7 @@ def test_honest_partial_and_full_disclosure(key_size, rsa2048_keypair, rsa3072_k
 def test_honest_roundtrip_with_kid():
     # Optional kid propagates through Issue, FinCreds, and VfPres key callback
     sk = RSAFDHPrivateKey.generate(key_size=2048, kid="issuer-rsa-fdh-1")
-    pk = sk.public_key
+    pk = sk.public_key()
     assert "kid" in sk and sk["kid"] == "issuer-rsa-fdh-1"
     assert "kid" in pk and pk["kid"] == "issuer-rsa-fdh-1"
 
